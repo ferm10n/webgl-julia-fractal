@@ -17,73 +17,9 @@
 </head>
 
 <body>
-    <!-- Where we will draw the fractal -->
-    <canvas id="mycanvas"></canvas>
+  <!-- Where we will draw the fractal -->
+  <canvas id="mycanvas"></canvas>
     
-    <!-- WebGL vertex shader source -->
-    <script id="vertex" type="x-shader">
-      attribute vec2 aVertexPosition; // value gets set in the JS
-     
-      // Runs for each vertex
-      void main() {
-        // No real calculations needed. We just use the given values and set them directly
-        gl_Position = vec4(aVertexPosition, 0.0, 1.0); // gl_Position is like the "return" of a vertex shader
-        // the first two values are the x and y, given by aVertexPosition
-        // the third is z, and the fourth has something to do with clipping
-      }
-    </script>
-    <script id="fragment" type="x-shader">
-      // A precision must be specified to use floats
-      #ifdef GL_ES
-      precision highp float;
-      #endif
-
-      uniform vec2 center; // center of the screen
-      uniform vec2 seed; // the "c" value for this fractal
-
-      // This is executed once for each pixel
-      void main() {
-        // Julias need a threshold value, and when c = (0,0), it forms a circle so I call the threshold a radius
-        float radius = min(center.x, center.y) * 0.8; // We want the radius to be 80% the minimum of the width or height of the screen
-
-        // Use the seed to get c'd (punpunpun)
-        float cx = (seed.x - center.x) / radius;
-        float cy = (seed.y - center.y) / radius;
-
-        // Initial value for z, a complex number
-        float zx = (gl_FragCoord.x - center.x) / radius;
-        float zy = (gl_FragCoord.y - center.y) / radius;
-        float iterations = 0.0;
-
-        // MAGIC: Z = Z^2+C iteratively until magnitude of Z passes threshold (not "radius") or 50 iterations occur, then it escapes
-        for(int i = 0; i < 50; i++){ // perform at most 50 iterations
-          if( (zx*zx + zy*zy) <= 4.0 ){
-            iterations++;
-
-            // Square a complex number and add C components
-            float zx2 = zx*zx - zy*zy + cx;
-            float zy2 = zx*zy + zx*zy + cy;
-
-            zx = zx2;
-            zy = zy2;
-          }else{
-            break;
-          }
-        }
-        
-        // The color of the pixel is set by the number of iterations that had to occur before it escaped
-	    if(iterations != 50.0){ // As long as we didn't max out the iterations (and the color won't be white)
-	      // MOAR MAGIC: find the fine color based on the "escaping speed"
-          float log_zn = log(zx*zx+zy*zy)/2.0;
-	      float nu = log(log_zn/log(2.0))/log(2.0);
-	      iterations += 1.0 - nu;
-	    }
-        iterations /= 50.0; // Scale to a range of 0-1
-
-        // PHEW. Set the color for the pixel!
-        gl_FragColor = vec4(iterations,iterations,iterations,1); // rgba
-      }
-    </script>
   <script>
     // Begin when DOM is ready. The WebGL stuff is contained in <script> tags
     document.body.onload = function init(){
@@ -213,6 +149,72 @@
       }
     };
   </script>
+	
+  
+    <!-- WebGL vertex shader source -->
+    <script id="vertex" type="x-shader">
+      attribute vec2 aVertexPosition; // value gets set in the JS
+     
+      // Runs for each vertex
+      void main() {
+        // No real calculations needed. We just use the given values and set them directly
+        gl_Position = vec4(aVertexPosition, 0.0, 1.0); // gl_Position is like the "return" of a vertex shader
+        // the first two values are the x and y, given by aVertexPosition
+        // the third is z, and the fourth has something to do with clipping
+      }
+    </script>
+    <script id="fragment" type="x-shader">
+      // A precision must be specified to use floats
+      #ifdef GL_ES
+      precision highp float;
+      #endif
+
+      uniform vec2 center; // center of the screen
+      uniform vec2 seed; // the "c" value for this fractal
+
+      // This is executed once for each pixel
+      void main() {
+        // Julias need a threshold value, and when c = (0,0), it forms a circle so I call the threshold a radius
+        float radius = min(center.x, center.y) * 0.8; // We want the radius to be 80% the minimum of the width or height of the screen
+
+        // Use the seed to get c'd (punpunpun)
+        float cx = (seed.x - center.x) / radius;
+        float cy = (seed.y - center.y) / radius;
+
+        // Initial value for z, a complex number
+        float zx = (gl_FragCoord.x - center.x) / radius;
+        float zy = (gl_FragCoord.y - center.y) / radius;
+        float iterations = 0.0;
+
+        // MAGIC: Z = Z^2+C iteratively until magnitude of Z passes threshold (not "radius") or 50 iterations occur, then it escapes
+        for(int i = 0; i < 50; i++){ // perform at most 50 iterations
+          if( (zx*zx + zy*zy) <= 4.0 ){
+            iterations++;
+
+            // Square a complex number and add C components
+            float zx2 = zx*zx - zy*zy + cx;
+            float zy2 = zx*zy + zx*zy + cy;
+
+            zx = zx2;
+            zy = zy2;
+          }else{
+            break;
+          }
+        }
+        
+        // The color of the pixel is set by the number of iterations that had to occur before it escaped
+	    if(iterations != 50.0){ // As long as we didn't max out the iterations (and the color won't be white)
+	      // MOAR MAGIC: find the fine color based on the "escaping speed"
+          float log_zn = log(zx*zx+zy*zy)/2.0;
+	      float nu = log(log_zn/log(2.0))/log(2.0);
+	      iterations += 1.0 - nu;
+	    }
+        iterations /= 50.0; // Scale to a range of 0-1
+
+        // PHEW. Set the color for the pixel!
+        gl_FragColor = vec4(iterations,iterations,iterations,1); // rgba
+      }
+    </script>
 </body>
 
 </html>
