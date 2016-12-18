@@ -1,6 +1,7 @@
-# WebGL-Julia-Fractal
-Simple example of how to use WebGL and HTML5 to render a Julia fractal. Touch compatible!
+# WebGL Julia Fractal Renderer in HTML5
+Simple example of how to use WebGL and HTML5 to render a Julia fractal. **Touch compatible!**
 
+![alt tag](https://raw.githubusercontent.com/jws121295/webgl-julia-fractal/master/snap.png)
 
 I included documentation on how it sorta works. I'm by no means an expert on WebGL or fractals, so don't take my notes TOO seriously. A lot of the process was oversimplified in an attempt to reduce the hair pulling of future readers.
 
