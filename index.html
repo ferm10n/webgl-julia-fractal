@@ -1,6 +1,218 @@
 <!DOCTYPE html>
 <html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body,html,canvas{
+            padding:0;
+            margin:0;
+            position:absolute;
+            left:0px;
+            right:0px;
+            top:0px;
+            bottom:0px;
+        }
+    </style>
+</head>
+
 <body>
-So this is github pages, eh?
+    <!-- Where we will draw the fractal -->
+    <canvas id="mycanvas"></canvas>
+    
+    <!-- WebGL vertex shader source -->
+    <script id="vertex" type="x-shader">
+      attribute vec2 aVertexPosition; // value gets set in the JS
+     
+      // Runs for each vertex
+      void main() {
+        // No real calculations needed. We just use the given values and set them directly
+        gl_Position = vec4(aVertexPosition, 0.0, 1.0); // gl_Position is like the "return" of a vertex shader
+        // the first two values are the x and y, given by aVertexPosition
+        // the third is z, and the fourth has something to do with clipping
+      }
+    </script>
+    <script id="fragment" type="x-shader">
+      // A precision must be specified to use floats
+      #ifdef GL_ES
+      precision highp float;
+      #endif
+
+      uniform vec2 center; // center of the screen
+      uniform vec2 seed; // the "c" value for this fractal
+
+      // This is executed once for each pixel
+      void main() {
+        // Julias need a threshold value, and when c = (0,0), it forms a circle so I call the threshold a radius
+        float radius = min(center.x, center.y) * 0.8; // We want the radius to be 80% the minimum of the width or height of the screen
+
+        // Use the seed to get c'd (punpunpun)
+        float cx = (seed.x - center.x) / radius;
+        float cy = (seed.y - center.y) / radius;
+
+        // Initial value for z, a complex number
+        float zx = (gl_FragCoord.x - center.x) / radius;
+        float zy = (gl_FragCoord.y - center.y) / radius;
+        float iterations = 0.0;
+
+        // MAGIC: Z = Z^2+C iteratively until magnitude of Z passes threshold (not "radius") or 50 iterations occur, then it escapes
+        for(int i = 0; i < 50; i++){ // perform at most 50 iterations
+          if( (zx*zx + zy*zy) <= 4.0 ){
+            iterations++;
+
+            // Square a complex number and add C components
+            float zx2 = zx*zx - zy*zy + cx;
+            float zy2 = zx*zy + zx*zy + cy;
+
+            zx = zx2;
+            zy = zy2;
+          }else{
+            break;
+          }
+        }
+        
+        // The color of the pixel is set by the number of iterations that had to occur before it escaped
+	    if(iterations != 50.0){ // As long as we didn't max out the iterations (and the color won't be white)
+	      // MOAR MAGIC: find the fine color based on the "escaping speed"
+          float log_zn = log(zx*zx+zy*zy)/2.0;
+	      float nu = log(log_zn/log(2.0))/log(2.0);
+	      iterations += 1.0 - nu;
+	    }
+        iterations /= 50.0; // Scale to a range of 0-1
+
+        // PHEW. Set the color for the pixel!
+        gl_FragColor = vec4(iterations,iterations,iterations,1); // rgba
+      }
+    </script>
+  <script>
+    // Begin when DOM is ready. The WebGL stuff is contained in <script> tags
+    document.body.onload = function init(){
+      
+      // Get elements and webgl context
+      var canvas = document.getElementById("mycanvas");
+      var gl = canvas.getContext("experimental-webgl");
+      
+      // WebGL needs something (a shader) that handles shapes that will be rendered, known as a vertex shader
+      // Essentially its job is to calculate the coordinates for the vertices of the shapes.
+      // The source for it must be loaded and compiled. You could simply put it all in a string and use that, but that's gross.
+      // I put mine in a <script> tag further below
+      var vsource = document.getElementById("vertex").firstChild.nodeValue;
+      var vs = gl.createShader(gl.VERTEX_SHADER); // Create a vertex shader object
+      gl.shaderSource(vs, vsource); // Associate the source with the shader
+      gl.compileShader(vs); // Compile
+      
+      // Now we need a "fragment shader", which is responsible for calculating the colors between the vertices
+      // For a fractal, I thought it only really made sense to use a static shape (or set or vertices) which occupy the entire space of the screen
+      // That way I can just let the fragment shader figure perform the julia equations for each pixel
+      // I load it just like the vertex shader
+      var fsource = document.getElementById("fragment").firstChild.nodeValue;
+      var fs = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fs, fsource);
+      gl.compileShader(fs);
+        
+      // To get the two shaders to work together, I need a webgl "program"
+      var program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      gl.linkProgram(program); // Links the attached shaders
+        
+      // Ensure there were no compilation errors
+      // The COMPILE_STATUS will indicate this
+      if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS))
+        console.log(gl.getShaderInfoLog(vs));
+      if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS))
+        console.log(gl.getShaderInfoLog(fs));
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) // Also ensure there were no linking errors
+        console.log(gl.getProgramInfoLog(program));
+      
+      // Now we should define the coordinates for the vertices
+      // We want them to span the entire screen, so lets make a rectangle (square actually) out of two triangles
+      // Even though this is a single array, it will be grouped into pairs of xy coordinates
+      // BTW, coordinate -1,1 is the top left corner of the canvas, and 1,-1 is the bottom right... probably just to screw with us
+      var vertices = new Float32Array([
+        -1, 1,  1, 1,  1,-1,  // Triangle 1
+        -1, 1,  1,-1, -1,-1   // Triangle 2
+      ]);
+      
+      // To get the vertices into the vertex shader, we need a buffer
+      var vbuffer = gl.createBuffer(); // Create buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbuffer); // Activate buffer
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); // Put data in active buffer
+        
+      gl.useProgram(program); // Use this program for future calls
+     
+      // Load vertices into webgl
+      program.aVertexPosition = gl.getAttribLocation(program, "aVertexPosition"); // Get memory reference to var in shader
+      gl.enableVertexAttribArray(program.aVertexPosition); // Enable the variable to recieve data (remember the buffer was bound earlier!)
+      gl.vertexAttribPointer(program.aVertexPosition, 2, gl.FLOAT, false, 0, 0); // Tell WebGl a little bit about the information going into this vector
+      // This info is:
+      // - index: location of the vertex we're modifying
+      // - size: how to group the elements of the "vertices" array (2 for x and y)
+      // - type: data type being handled
+      // - normalize, offset, and stride: ...not really important for this
+      
+      // Now the vertex shader will receive the vertices we defined.
+      // Note that the main() function in the vs will be executed once for EACH vertex defined
+      
+      // Now the fragment shader needs data from here
+      // It might be helpful to stop here and read the fs source first before continuing
+      // The "center" value is used to adjust the aspect ratio difference between what webGL renders (remember the goofy coordinate system?) to the dimensions of the canvas
+      program.center = gl.getUniformLocation(program,"center");
+      gl.uniform2fv(program.center,[window.innerWidth/2,window.innerHeight/2]);
+        
+      // Inject seed value, used as the "C" value in the fractal's equation
+      program.seed = gl.getUniformLocation(program,"seed");
+      gl.uniform2fv(program.seed,[window.innerWidth/2,window.innerHeight/2]); // Initially this is center, but it can be moved with the mouse or something
+    
+      // This function simply draws the loaded vertices. It's in a function so it can be used repeatedly
+      function drawFrame(){
+        gl.drawArrays(gl.TRIANGLES, 0, 6); // 6 for the number of vertices
+      }
+      
+      // Prevent scrolling and pinching from screwing everything up!
+      document.body.addEventListener('wheel', function (e) {
+        e.preventDefault();
+      });
+	  document.body.addEventListener('touchmove',function(e){
+	    e.preventDefault();
+      });
+      
+      // This next bit is kinda weird, but it's there to let the canvas be resized to the size of the window
+      // The problem is that it was kinda inefficient to resize on every resize event, since there can be are a LOT of them.
+      // My solution just throttles it to only resize in no less than a 1 second
+      window.resizable = true; // Flag for allowing resize
+      function windowResized() {
+        if (window.resizable) { // Has it been more than 1 second?
+          window.resizable = false; // Wait a sec... ha
+          // Resize the stuff that matters
+          canvas.setAttribute("width", window.innerWidth);
+          canvas.setAttribute("height", window.innerHeight);
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          gl.uniform2fv(program.center,[canvas.width/2,canvas.height/2]);
+          drawFrame(); // resize requires a redraw!
+        }
+      }
+      windowResized(); // Resize to fit initial dimensions
+      window.addEventListener("resize", function () {
+        window.resizable = true; // We can now resize
+      }, false);
+      setInterval(windowResized, 1000); // Start the 1 second resize intervals
+
+      // Used for when mouse or touch events should move the fractals seed thing
+      function updateSeed(sx,sy){
+          gl.uniform2fv(program.seed,[sx,sy]);
+          drawFrame();
+      }
+
+      // Mouse and touch --> seed
+      canvas.onmousemove = function(e){
+          updateSeed(e.clientX,e.clientY);
+      }
+      canvas.ontouchmove = function(e){
+          updateSeed(e.touches[0].clientX,e.touches[0].clientY);
+      }
+    };
+  </script>
 </body>
+
 </html>
