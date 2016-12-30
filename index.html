@@ -100,10 +100,28 @@
       program.seed = gl.getUniformLocation(program,"seed");
       gl.uniform2fv(program.seed,[window.innerWidth/2,window.innerHeight/2]); // Initially this is center, but it can be moved with the mouse or something
     
-      // This function simply draws the loaded vertices. It's in a function so it can be used repeatedly
-      function drawFrame(){
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      var seedX = canvas.width/2,
+          seedY = canvas.height/2,
+          seedTargetX = seedX,
+          seedTargetY = seedY,
+          seedVX = 0,
+          seedVY = 0;
+
+      // Injects values into webgl world, and then triggers the image to render
+      function render(){
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2fv(program.center,[canvas.width/2,canvas.height/2]);
+        gl.uniform2fv(program.seed,[seedX,seedY]);
+
         gl.drawArrays(gl.TRIANGLES, 0, 6); // 6 for the number of vertices
+
+        // do it again!
+        window.requestAnimationFrame(render);
       }
+      render(); // first render!
       
       // Prevent scrolling and pinching from screwing everything up!
       document.body.addEventListener('wheel', function (e) {
@@ -113,39 +131,28 @@
 	    e.preventDefault();
       });
       
-      // This next bit is kinda weird, but it's there to let the canvas be resized to the size of the window
-      // The problem is that it was kinda inefficient to resize on every resize event, since there can be are a LOT of them.
-      // My solution just throttles it to only resize in no less than a 1 second
-      window.resizable = true; // Flag for allowing resize
-      function windowResized() {
-        if (window.resizable) { // Has it been more than 1 second?
-          window.resizable = false; // Wait a sec... ha
-          // Resize the stuff that matters
-          canvas.setAttribute("width", window.innerWidth);
-          canvas.setAttribute("height", window.innerHeight);
-          gl.viewport(0, 0, canvas.width, canvas.height);
-          gl.uniform2fv(program.center,[canvas.width/2,canvas.height/2]);
-          drawFrame(); // resize requires a redraw!
-        }
-      }
-      windowResized(); // Resize to fit initial dimensions
+      // Size DOES matter
       window.addEventListener("resize", function () {
-        window.resizable = true; // We can now resize
+        canvas.setAttribute("width", window.innerWidth);
+        canvas.setAttribute("height", window.innerHeight);
+
+        // prevent duplicate requests
+        window.cancelAnimationFrame(render); // cancel any existing
+        window.requestAnimationFrame(render); // make a new request
       }, false);
-      setInterval(windowResized, 1000); // Start the 1 second resize intervals
 
       // Used for when mouse or touch events should move the fractals seed thing
       function updateSeed(sx,sy){
-          gl.uniform2fv(program.seed,[sx,sy]);
-          drawFrame();
+        seedX = sx;
+        seedY = sy;
       }
 
       // Mouse and touch --> seed
       canvas.onmousemove = function(e){
-          updateSeed(e.clientX,e.clientY);
+        updateSeed(e.clientX,e.clientY);
       }
       canvas.ontouchmove = function(e){
-          updateSeed(e.touches[0].clientX,e.touches[0].clientY);
+        updateSeed(e.touches[0].clientX,e.touches[0].clientY);
       }
     };
   </script>
