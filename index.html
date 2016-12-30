@@ -112,6 +112,10 @@
 
       // Injects values into webgl world, and then triggers the image to render
       function render(){
+        // Make seed converge to seedTarget
+        seedX = (seedX + seedTargetX)/2;
+        seedY = (seedY + seedTargetY)/2;
+
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.uniform2fv(program.center,[canvas.width/2,canvas.height/2]);
         gl.uniform2fv(program.seed,[seedX,seedY]);
@@ -143,8 +147,8 @@
 
       // Used for when mouse or touch events should move the fractals seed thing
       function updateSeed(sx,sy){
-        seedX = sx;
-        seedY = sy;
+        seedTargetX = sx;
+        seedTargetY = sy;
       }
 
       // Mouse and touch --> seed
