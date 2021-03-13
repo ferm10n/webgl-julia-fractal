@@ -13,19 +13,28 @@
             top:0px;
             bottom:0px;
         }
+        #seed {
+          position: absolute;
+          width: .1in;
+          height: .1in;
+          background-color: red;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js"></script>
 </head>
 
 <body>
   <!-- Where we will draw the fractal -->
   <canvas id="mycanvas"></canvas>
+  <!-- <div id="seed">&nbsp;</div> -->
     
   <script>
     // Begin when DOM is ready. The WebGL stuff is contained in <script> tags
     document.body.onload = function init(){
       
       // Get elements and webgl context
-      var canvas = document.getElementById("mycanvas");
+      const canvas = document.querySelector("#mycanvas");
+      // const seedElement = document.querySelector('#seed');
       var gl = canvas.getContext("experimental-webgl");
       
       // WebGL needs something (a shader) that handles shapes that will be rendered, known as a vertex shader
@@ -103,18 +112,23 @@
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
 
-      var seedX = canvas.width/2,
-          seedY = canvas.height/2,
-          seedTargetX = seedX,
-          seedTargetY = seedY,
-          seedVX = 0,
-          seedVY = 0;
+      let seedX = canvas.width / 2;
+      let seedY = canvas.height / 2;
+      let seedVX = 0;
+      let seedVY = 0;
+
+      const seedTarget = {
+        x: seedX,
+        y: seedY,
+      };
 
       // Injects values into webgl world, and then triggers the image to render
       function render(){
         // Make seed converge to seedTarget
-        seedX = (seedX + seedTargetX)/2;
-        seedY = (seedY + seedTargetY)/2;
+        seedX = (seedX + seedTarget.x)/2;
+        seedY = (seedY + seedTarget.y)/2;
+        // seedX = seedTarget.x;
+        // seedY = seedTarget.y;
 
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.uniform2fv(program.center,[canvas.width/2,canvas.height/2]);
@@ -147,8 +161,8 @@
 
       // Used for when mouse or touch events should move the fractals seed thing
       function updateSeed(sx,sy){
-        seedTargetX = sx;
-        seedTargetY = sy;
+        seedTarget.x = sx;
+        seedTarget.y = sy;
       }
 
       // Mouse and touch --> seed
@@ -157,6 +171,52 @@
       }
       canvas.ontouchmove = function(e){
         updateSeed(e.touches[0].clientX,e.touches[0].clientY);
+      }
+
+      // const timeline = anime.timeline({
+      //   duration: 750,
+      //   delay: 0,
+      //   easing: 'easeInOutQuad',
+      //   // easing: 'linear',
+      //   loop: true,
+      //   targets: seedTarget,
+      //   direction: 'alternate',
+      // });
+      // timeline.add({ x: seedX, y: seedY })
+      const keyframes = [ {
+        x: seedX,
+        y: seedY,
+      } ];
+      canvas.onclick = function (e) {
+        console.log(e.clientX, e.clientY);
+        keyframes.push({
+          x: e.clientX,
+          y: e.clientY,
+        });
+        // keyframes.push();
+        // if (animation) {
+        //   animation.remove();
+        // }
+        // animation = anime({
+        //   targets: seedTarget,
+        //   keyframes,
+        //   duration: 2000,
+        //   easing: 'easeInOutQuad',
+        //   loop: true,
+        //   // direction: 'alternate'
+        // })
+      }
+
+      document.body.onkeypress = function (e) {
+        anime({
+          duration: 4000,
+          delay: 0,
+          easing: 'easeInOutQuad',
+          keyframes,
+          loop: true,
+          targets: seedTarget,
+          direction: 'alternate',
+        });
       }
     };
   </script>
@@ -199,6 +259,10 @@
 
         // MAGIC: Z = Z^2+C iteratively until magnitude of Z passes threshold (not "radius") or 50 iterations occur, then it escapes
         for(int i = 0; i < 50; i++){ // perform at most 50 iterations
+          if( (zx*zx + zy*zy) <= 0.05 ){
+            break;
+          }
+
           if( (zx*zx + zy*zy) <= 4.0 ){
             iterations++;
 
@@ -223,7 +287,7 @@
         iterations /= 50.0; // Scale to a range of 0-1
 
         // PHEW. Set the color for the pixel!
-        gl_FragColor = vec4(iterations,0,0,1); // rgba
+        gl_FragColor = vec4(iterations,iterations,iterations,1); // rgba
       }
     </script>
 </body>
